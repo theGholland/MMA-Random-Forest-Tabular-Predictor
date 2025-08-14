@@ -28,7 +28,19 @@ def _get_estimators(use_cuda: bool):
     return RandomForestRegressor, RandomForestClassifier
 
 
-def train_models(csv_path: str, model_dir: str = 'models', use_cuda: bool = False) -> None:
+def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1, use_cuda: bool = False) -> None:
+    """Train random forest models.
+
+    Parameters
+    ----------
+    csv_path: str
+        Path to the training data CSV file.
+    model_dir: str, optional
+        Directory where the trained models will be saved.
+    epochs: int, optional
+        Number of epochs to train for. Models are re-fit each epoch.
+    """
+
     df = load_data(csv_path)
     X = df[['fighter_1', 'fighter_2', 'referee']]
     y_num = df[NUMERIC_COLS]
@@ -60,8 +72,10 @@ def train_models(csv_path: str, model_dir: str = 'models', use_cuda: bool = Fals
         X, y_num, y_cat, test_size=0.2, random_state=42
     )
 
-    regressor.fit(X_train, y_num_train)
-    classifier.fit(X_train, y_cat_train)
+    for epoch in range(1, epochs + 1):
+        print(f"Epoch {epoch}/{epochs}")
+        regressor.fit(X_train, y_num_train)
+        classifier.fit(X_train, y_cat_train)
 
     os.makedirs(model_dir, exist_ok=True)
     joblib.dump(regressor, os.path.join(model_dir, 'regressor.joblib'))
@@ -76,7 +90,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train fight outcome models')
     parser.add_argument('--csv-path', default='ufc_fight_stats.csv')
     parser.add_argument('--model-dir', default='models')
+    parser.add_argument('--epochs', type=int, default=1, help='Number of training epochs')
     parser.add_argument('--use-cuda', action='store_true', help='Use GPU-accelerated training if available')
     args = parser.parse_args()
 
-    train_models(args.csv_path, args.model_dir, use_cuda=args.use_cuda)
+    train_models(args.csv_path, args.model_dir, epochs=args.epochs, use_cuda=args.use_cuda)
