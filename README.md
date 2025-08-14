@@ -1,6 +1,9 @@
 # MMA-Random-Forest-Tabular-Predictor
 Using Tabular UFC fight data to predict winners from a given matchup
 
+## Model Overview
+The training pipeline cleans raw fight statistics (for example converting "19 of 31" and "2:39" to numbers) and one-hot encodes fighter and referee names. It builds two Random Forest models with 200 trees each: a `RandomForestRegressor` that predicts multiple numeric fight stats and a `MultiOutputClassifier` wrapping a `RandomForestClassifier` that predicts the fight result, method and round. All models and label encoders are saved so that, during prediction, the script loads them, assembles a one-row DataFrame for the matchup, translates predictions back to labels and returns a combined dictionary of fight statistics and outcome.
+
 ## Setup
 Install dependencies:
 
