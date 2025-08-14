@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 
 # Columns containing "X of Y" counts
 COUNT_COLS = [
@@ -74,3 +75,18 @@ def launch_tensorboard(log_dir: str = 'runs') -> None:
         print(f'TensorBoard started at {url}')
     except Exception as e:
         print(f'Failed to launch TensorBoard: {e}')
+
+
+def configure_device() -> None:
+    """Enable GPU acceleration if a compatible device is available."""
+    gpus = tf.config.list_physical_devices('GPU')
+    if not gpus:
+        print('No GPU detected. Using CPU.')
+        return
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        gpu_names = ', '.join([gpu.name for gpu in gpus])
+        print(f'Enabled GPU acceleration on: {gpu_names}')
+    except RuntimeError as e:
+        print(f'Failed to configure GPU: {e}')

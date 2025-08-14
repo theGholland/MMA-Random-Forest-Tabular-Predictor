@@ -8,7 +8,7 @@ import pandas as pd
 import tensorflow as tf
 import tensorflow_decision_forests as tfdf
 
-from utils import NUMERIC_COLS, launch_tensorboard
+from utils import NUMERIC_COLS, launch_tensorboard, configure_device
 
 
 def load_models(model_dir: str = 'models'):
@@ -59,6 +59,7 @@ def main():
     parser.add_argument('--model-dir', default='models')
     args = parser.parse_args()
 
+    configure_device()
     launch_tensorboard('runs')
     regressors, classifiers, class_info = load_models(args.model_dir)
     prediction = predict(args.fighter1, args.fighter2, args.referee,

@@ -8,11 +8,12 @@ import tensorflow_decision_forests as tfdf
 from absl import logging as absl_logging
 from tqdm.auto import tqdm
 
-from utils import NUMERIC_COLS, load_data, launch_tensorboard
+from utils import NUMERIC_COLS, load_data, launch_tensorboard, configure_device
 
 
 def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1, debuglevel: int = 0) -> None:
     """Train TensorFlow Decision Forest models and log metrics to TensorBoard."""
+    configure_device()
     if debuglevel >= 2:
         tf.get_logger().setLevel("INFO")
         absl_logging.set_verbosity(absl_logging.INFO)
