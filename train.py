@@ -6,6 +6,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # Reduce TensorFlow logging
 import tensorflow as tf
 import tensorflow_decision_forests as tfdf
 from absl import logging as absl_logging
+from tqdm.auto import tqdm
 
 from utils import NUMERIC_COLS, load_data, launch_tensorboard
 
@@ -31,7 +32,7 @@ def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1, debu
     writer = tf.summary.create_file_writer('runs')
     os.makedirs(model_dir, exist_ok=True)
 
-    for epoch in range(1, epochs + 1):
+    for epoch in tqdm(range(1, epochs + 1), desc="Epochs", unit="epoch"):
         train_mses, test_mses = [], []
         train_accs, test_accs = [], []
 
@@ -89,7 +90,7 @@ def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1, debu
         avg_test_mse = sum(test_mses) / len(test_mses) if test_mses else 0.0
 
         if debuglevel >= 1:
-            print(
+            tqdm.write(
                 f"Epoch {epoch}/{epochs} - Train Acc: {avg_train_acc:.4f} Test Acc: {avg_test_acc:.4f} "
                 f"Train MSE: {avg_train_mse:.4f} Test MSE: {avg_test_mse:.4f}"
             )
@@ -100,7 +101,7 @@ def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1, debu
             tf.summary.scalar('MSE/test', avg_test_mse, step=epoch)
     writer.close()
     if debuglevel >= 1:
-        print(f'Models saved to {model_dir}')
+        tqdm.write(f'Models saved to {model_dir}')
 
 
 if __name__ == '__main__':
