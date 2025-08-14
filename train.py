@@ -10,7 +10,19 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from utils import NUMERIC_COLS, load_data
 
 
-def train_models(csv_path: str, model_dir: str = 'models') -> None:
+def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1) -> None:
+    """Train random forest models.
+
+    Parameters
+    ----------
+    csv_path: str
+        Path to the training data CSV file.
+    model_dir: str, optional
+        Directory where the trained models will be saved.
+    epochs: int, optional
+        Number of epochs to train for. Models are re-fit each epoch.
+    """
+
     df = load_data(csv_path)
     X = df[['fighter_1', 'fighter_2', 'referee']]
     y_num = df[NUMERIC_COLS]
@@ -40,8 +52,10 @@ def train_models(csv_path: str, model_dir: str = 'models') -> None:
         X, y_num, y_cat, test_size=0.2, random_state=42
     )
 
-    regressor.fit(X_train, y_num_train)
-    classifier.fit(X_train, y_cat_train)
+    for epoch in range(1, epochs + 1):
+        print(f"Epoch {epoch}/{epochs}")
+        regressor.fit(X_train, y_num_train)
+        classifier.fit(X_train, y_cat_train)
 
     os.makedirs(model_dir, exist_ok=True)
     joblib.dump(regressor, os.path.join(model_dir, 'regressor.joblib'))
@@ -51,4 +65,12 @@ def train_models(csv_path: str, model_dir: str = 'models') -> None:
 
 
 if __name__ == '__main__':
-    train_models('ufc_fight_stats.csv')
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Train UFC prediction models")
+    parser.add_argument('--csv-path', default='ufc_fight_stats.csv', help='Path to training CSV data')
+    parser.add_argument('--model-dir', default='models', help='Directory to save trained models')
+    parser.add_argument('--epochs', type=int, default=1, help='Number of training epochs')
+    args = parser.parse_args()
+
+    train_models(args.csv_path, model_dir=args.model_dir, epochs=args.epochs)
