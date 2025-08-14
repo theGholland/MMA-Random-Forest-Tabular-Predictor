@@ -1,99 +1,82 @@
 import os
-import joblib
-from sklearn.compose import ColumnTransformer
-from sklearn.model_selection import train_test_split
-from sklearn.multioutput import MultiOutputClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-
-from tensorboardX import SummaryWriter
+import json
+import tensorflow as tf
+import tensorflow_decision_forests as tfdf
 
 from utils import NUMERIC_COLS, load_data
 
 
-def _get_estimators(use_cuda: bool):
-    """Return RandomForest estimators for regression and classification.
-
-    If ``use_cuda`` is True and RAPIDS cuML is available, GPU-accelerated
-    estimators are used. Otherwise, fall back to scikit-learn.
-    """
-    if use_cuda:
-        try:
-            from cuml.ensemble import (
-                RandomForestClassifier as cuRFClassifier,
-                RandomForestRegressor as cuRFRegressor,
-            )
-            return cuRFRegressor, cuRFClassifier
-        except Exception:
-            print("cuML is not available. Falling back to CPU scikit-learn models.")
-    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-    return RandomForestRegressor, RandomForestClassifier
-
-
-def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1, use_cuda: bool = False) -> None:
-    """Train random forest models.
-
-    Parameters
-    ----------
-    csv_path: str
-        Path to the training data CSV file.
-    model_dir: str, optional
-        Directory where the trained models will be saved.
-    epochs: int, optional
-        Number of epochs to train for. Models are re-fit each epoch.
-    """
-
+def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1) -> None:
+    """Train TensorFlow Decision Forest models and log metrics to TensorBoard."""
     df = load_data(csv_path)
-    # create explicit copies to avoid SettingWithCopyWarning when modifying
-    X = df[['fighter_1', 'fighter_2', 'referee']].copy()
-    y_num = df[NUMERIC_COLS].copy()
-    y_cat = df[['result', 'method', 'round']].copy()
+    features = ['fighter_1', 'fighter_2', 'referee']
+    df_shuffled = df.sample(frac=1, random_state=42)
+    split = int(len(df_shuffled) * 0.8)
+    train_df = df_shuffled.iloc[:split].reset_index(drop=True)
+    test_df = df_shuffled.iloc[split:].reset_index(drop=True)
 
-    label_encoders = {}
-    for col in y_cat.columns:
-        le = LabelEncoder()
-        y_cat[col] = le.fit_transform(y_cat[col])
-        label_encoders[col] = le
-
-    preproc = ColumnTransformer([
-        ('names', OneHotEncoder(handle_unknown='ignore'), ['fighter_1', 'fighter_2', 'referee'])
-    ])
-
-    RFRegressor, RFClassifier = _get_estimators(use_cuda)
-
-    regressor = Pipeline([
-        ('prep', preproc),
-        ('rf', RFRegressor(n_estimators=200, random_state=42))
-    ])
-
-    classifier = Pipeline([
-        ('prep', preproc),
-        ('rf', MultiOutputClassifier(RFClassifier(n_estimators=200, random_state=42)))
-    ])
-
-    X_train, X_test, y_num_train, y_num_test, y_cat_train, y_cat_test = train_test_split(
-        X, y_num, y_cat, test_size=0.2, random_state=42
-    )
-
-    writer = SummaryWriter()
+    writer = tf.summary.create_file_writer('runs')
+    os.makedirs(model_dir, exist_ok=True)
 
     for epoch in range(1, epochs + 1):
-        print(f"Epoch {epoch}/{epochs}")
-        regressor.fit(X_train, y_num_train)
-        classifier.fit(X_train, y_cat_train)
+        train_mses, test_mses = [], []
+        train_accs, test_accs = [], []
 
-        train_acc = classifier.score(X_train, y_cat_train)
-        test_acc = classifier.score(X_test, y_cat_test)
-        writer.add_scalar('Accuracy/train', train_acc, epoch)
-        writer.add_scalar('Accuracy/test', test_acc, epoch)
-        print(f"Train Accuracy: {train_acc:.4f}  Test Accuracy: {test_acc:.4f}")
+        # Train regressors for numeric columns
+        for col in NUMERIC_COLS:
+            train_ds = tfdf.keras.pd_dataframe_to_tf_dataset(
+                train_df[features + [col]], label=col, task=tfdf.keras.Task.REGRESSION
+            )
+            test_ds = tfdf.keras.pd_dataframe_to_tf_dataset(
+                test_df[features + [col]], label=col, task=tfdf.keras.Task.REGRESSION
+            )
+            model = tfdf.keras.RandomForestModel(task=tfdf.keras.Task.REGRESSION, num_trees=100)
+            model.fit(train_ds)
+            model.compile(metrics=['mse'])
+            train_eval = model.evaluate(train_ds, return_dict=True)
+            test_eval = model.evaluate(test_ds, return_dict=True)
+            train_mses.append(train_eval['mse'])
+            test_mses.append(test_eval['mse'])
+            model.save(os.path.join(model_dir, f'regressor_{col}'))
 
+        # Train classifiers for categorical columns
+        class_info = {}
+        for col in ['result', 'method', 'round']:
+            classes = sorted(train_df[col].unique().tolist())
+            class_info[col] = classes
+            train_ds = tfdf.keras.pd_dataframe_to_tf_dataset(
+                train_df[features + [col]], label=col, task=tfdf.keras.Task.CLASSIFICATION
+            )
+            test_ds = tfdf.keras.pd_dataframe_to_tf_dataset(
+                test_df[features + [col]], label=col, task=tfdf.keras.Task.CLASSIFICATION
+            )
+            model = tfdf.keras.RandomForestModel(task=tfdf.keras.Task.CLASSIFICATION, num_trees=100)
+            model.fit(train_ds)
+            model.compile(metrics=['accuracy'])
+            train_eval = model.evaluate(train_ds, return_dict=True)
+            test_eval = model.evaluate(test_ds, return_dict=True)
+            train_accs.append(train_eval['accuracy'])
+            test_accs.append(test_eval['accuracy'])
+            model.save(os.path.join(model_dir, f'classifier_{col}'))
+
+        with open(os.path.join(model_dir, 'class_info.json'), 'w') as f:
+            json.dump(class_info, f)
+
+        avg_train_acc = sum(train_accs) / len(train_accs) if train_accs else 0.0
+        avg_test_acc = sum(test_accs) / len(test_accs) if test_accs else 0.0
+        avg_train_mse = sum(train_mses) / len(train_mses) if train_mses else 0.0
+        avg_test_mse = sum(test_mses) / len(test_mses) if test_mses else 0.0
+
+        print(
+            f"Epoch {epoch}/{epochs} - Train Acc: {avg_train_acc:.4f} Test Acc: {avg_test_acc:.4f} "
+            f"Train MSE: {avg_train_mse:.4f} Test MSE: {avg_test_mse:.4f}"
+        )
+        with writer.as_default():
+            tf.summary.scalar('Accuracy/train', avg_train_acc, step=epoch)
+            tf.summary.scalar('Accuracy/test', avg_test_acc, step=epoch)
+            tf.summary.scalar('MSE/train', avg_train_mse, step=epoch)
+            tf.summary.scalar('MSE/test', avg_test_mse, step=epoch)
     writer.close()
-
-    os.makedirs(model_dir, exist_ok=True)
-    joblib.dump(regressor, os.path.join(model_dir, 'regressor.joblib'))
-    joblib.dump(classifier, os.path.join(model_dir, 'classifier.joblib'))
-    joblib.dump(label_encoders, os.path.join(model_dir, 'label_encoders.joblib'))
     print(f'Models saved to {model_dir}')
 
 
@@ -104,7 +87,6 @@ if __name__ == '__main__':
     parser.add_argument('--csv-path', default='ufc_fight_stats.csv')
     parser.add_argument('--model-dir', default='models')
     parser.add_argument('--epochs', type=int, default=1, help='Number of training epochs')
-    parser.add_argument('--use-cuda', action='store_true', help='Use GPU-accelerated training if available')
     args = parser.parse_args()
 
-    train_models(args.csv_path, args.model_dir, epochs=args.epochs, use_cuda=args.use_cuda)
+    train_models(args.csv_path, args.model_dir, epochs=args.epochs)
