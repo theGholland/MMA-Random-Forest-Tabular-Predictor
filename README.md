@@ -18,14 +18,13 @@ Train models and save them to the `models/` directory:
 python train.py
 ```
 
-You can adjust the number of epochs and data/model paths:
+A progress bar tracks epoch progress at all debug levels. To log per-epoch metrics while keeping the bar intact, increase the debug level:
 
 ```
-python train.py --epochs 5 --csv-path ufc_fight_stats.csv --model-dir models
+python train.py --epochs 5 --debuglevel 1 --csv-path ufc_fight_stats.csv --model-dir models
 ```
 
-Training logs, including per-epoch accuracy, are written for TensorBoard. To
-visualize them, run:
+Training logs, including per-epoch accuracy, are written for TensorBoard. To visualize them, run:
 
 ```
 tensorboard --logdir runs
