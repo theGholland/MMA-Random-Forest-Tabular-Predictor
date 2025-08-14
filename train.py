@@ -44,9 +44,10 @@ def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1, use_
     """
 
     df = load_data(csv_path)
-    X = df[['fighter_1', 'fighter_2', 'referee']]
-    y_num = df[NUMERIC_COLS]
-    y_cat = df[['result', 'method', 'round']]
+    # create explicit copies to avoid SettingWithCopyWarning when modifying
+    X = df[['fighter_1', 'fighter_2', 'referee']].copy()
+    y_num = df[NUMERIC_COLS].copy()
+    y_cat = df[['result', 'method', 'round']].copy()
 
     label_encoders = {}
     for col in y_cat.columns:
