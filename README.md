@@ -5,7 +5,9 @@ Using Tabular UFC fight data to predict winners from a given matchup
 The training pipeline cleans raw fight statistics (for example converting "19 of 31" and "2:39" to numbers) and feeds fighter and referee names directly into [TensorFlow Decision Forests](https://www.tensorflow.org/decision_forests). Separate Random Forest models predict numeric fight statistics and categorical outcomes (result, method and round). Models are saved in TensorFlow's SavedModel format for use during prediction.
 
 ## Setup
-Install dependencies (pinned to versions compatible with TensorFlow Decision Forests):
+Install dependencies (pinned to versions compatible with TensorFlow Decision Forests).
+The requirements include optional CUDA-enabled TensorFlow; if a compatible GPU and
+drivers are present, training and prediction will automatically leverage it:
 
 ```
 pip install -r requirements.txt
