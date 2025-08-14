@@ -1,13 +1,18 @@
 import os
 import json
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # Reduce TensorFlow logging
+
 import tensorflow as tf
 import tensorflow_decision_forests as tfdf
 
-from utils import NUMERIC_COLS, load_data
+from utils import NUMERIC_COLS, load_data, launch_tensorboard
 
 
 def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1) -> None:
     """Train TensorFlow Decision Forest models and log metrics to TensorBoard."""
+    tf.get_logger().setLevel("ERROR")
+    launch_tensorboard("runs")
     df = load_data(csv_path)
     features = ['fighter_1', 'fighter_2', 'referee']
     df_shuffled = df.sample(frac=1, random_state=42)
@@ -30,11 +35,13 @@ def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1) -> N
             test_ds = tfdf.keras.pd_dataframe_to_tf_dataset(
                 test_df[features + [col]], label=col, task=tfdf.keras.Task.REGRESSION
             )
-            model = tfdf.keras.RandomForestModel(task=tfdf.keras.Task.REGRESSION, num_trees=100)
-            model.fit(train_ds)
+            model = tfdf.keras.RandomForestModel(
+                task=tfdf.keras.Task.REGRESSION, num_trees=100, verbose=0
+            )
+            model.fit(train_ds, verbose=0)
             model.compile(metrics=['mse'])
-            train_eval = model.evaluate(train_ds, return_dict=True)
-            test_eval = model.evaluate(test_ds, return_dict=True)
+            train_eval = model.evaluate(train_ds, return_dict=True, verbose=0)
+            test_eval = model.evaluate(test_ds, return_dict=True, verbose=0)
             train_mses.append(train_eval['mse'])
             test_mses.append(test_eval['mse'])
             model.save(os.path.join(model_dir, f'regressor_{col}'))
@@ -50,11 +57,13 @@ def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1) -> N
             test_ds = tfdf.keras.pd_dataframe_to_tf_dataset(
                 test_df[features + [col]], label=col, task=tfdf.keras.Task.CLASSIFICATION
             )
-            model = tfdf.keras.RandomForestModel(task=tfdf.keras.Task.CLASSIFICATION, num_trees=100)
-            model.fit(train_ds)
+            model = tfdf.keras.RandomForestModel(
+                task=tfdf.keras.Task.CLASSIFICATION, num_trees=100, verbose=0
+            )
+            model.fit(train_ds, verbose=0)
             model.compile(metrics=['accuracy'])
-            train_eval = model.evaluate(train_ds, return_dict=True)
-            test_eval = model.evaluate(test_ds, return_dict=True)
+            train_eval = model.evaluate(train_ds, return_dict=True, verbose=0)
+            test_eval = model.evaluate(test_ds, return_dict=True, verbose=0)
             train_accs.append(train_eval['accuracy'])
             test_accs.append(test_eval['accuracy'])
             model.save(os.path.join(model_dir, f'classifier_{col}'))

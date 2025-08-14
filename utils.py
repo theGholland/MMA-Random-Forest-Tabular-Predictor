@@ -61,3 +61,16 @@ def load_data(path: str) -> pd.DataFrame:
     df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
     df['round'] = df['round'].astype(int)
     return df
+
+
+def launch_tensorboard(log_dir: str = 'runs') -> None:
+    """Start a TensorBoard server for visualizing training metrics."""
+    try:
+        from tensorboard import program
+
+        tb = program.TensorBoard()
+        tb.configure(argv=[None, '--logdir', log_dir, '--host', '0.0.0.0'])
+        url = tb.launch()
+        print(f'TensorBoard started at {url}')
+    except Exception as e:
+        print(f'Failed to launch TensorBoard: {e}')
