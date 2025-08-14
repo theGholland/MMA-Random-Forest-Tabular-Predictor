@@ -21,6 +21,13 @@ You can adjust the number of epochs and data/model paths:
 python train.py --epochs 5 --csv-path ufc_fight_stats.csv --model-dir models
 ```
 
+Training logs, including per-epoch accuracy, are written for TensorBoard. To
+visualize them, run:
+
+```
+tensorboard --logdir runs
+```
+
 ## Prediction
 Load the saved models and generate predictions for a matchup:
 
