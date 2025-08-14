@@ -12,7 +12,7 @@ pip install -r requirements.txt
 Train models and save them to the `models/` directory:
 
 ```
-python train.py
+python train.py [--use-cuda]
 ```
 
 You can adjust the number of epochs and data/model paths:
@@ -25,7 +25,7 @@ python train.py --epochs 5 --csv-path ufc_fight_stats.csv --model-dir models
 Load the saved models and generate predictions for a matchup:
 
 ```
-python predict.py --fighter1 "Alexa Grasso" --fighter2 "Valentina Shevchenko" --referee "Herb Dean"
+python predict.py --fighter1 "Alexa Grasso" --fighter2 "Valentina Shevchenko" --referee "Herb Dean" [--use-cuda]
 ```
 
 The script prints predicted fight statistics along with the result, method and round.
