@@ -6,6 +6,8 @@ from sklearn.multioutput import MultiOutputClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
+from tensorboardX import SummaryWriter
+
 from utils import NUMERIC_COLS, load_data
 
 
@@ -72,10 +74,20 @@ def train_models(csv_path: str, model_dir: str = 'models', epochs: int = 1, use_
         X, y_num, y_cat, test_size=0.2, random_state=42
     )
 
+    writer = SummaryWriter()
+
     for epoch in range(1, epochs + 1):
         print(f"Epoch {epoch}/{epochs}")
         regressor.fit(X_train, y_num_train)
         classifier.fit(X_train, y_cat_train)
+
+        train_acc = classifier.score(X_train, y_cat_train)
+        test_acc = classifier.score(X_test, y_cat_test)
+        writer.add_scalar('Accuracy/train', train_acc, epoch)
+        writer.add_scalar('Accuracy/test', test_acc, epoch)
+        print(f"Train Accuracy: {train_acc:.4f}  Test Accuracy: {test_acc:.4f}")
+
+    writer.close()
 
     os.makedirs(model_dir, exist_ok=True)
     joblib.dump(regressor, os.path.join(model_dir, 'regressor.joblib'))
