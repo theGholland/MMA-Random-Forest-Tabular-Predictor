@@ -1,5 +1,3 @@
 pandas
-scikit-learn
-joblib
-tensorboardX
-cuml
+tensorflow
+tensorflow_decision_forests
