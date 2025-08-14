@@ -15,6 +15,12 @@ Train models and save them to the `models/` directory:
 python train.py
 ```
 
+You can adjust the number of epochs and data/model paths:
+
+```
+python train.py --epochs 5 --csv-path ufc_fight_stats.csv --model-dir models
+```
+
 ## Prediction
 Load the saved models and generate predictions for a matchup:
 
