@@ -2,12 +2,10 @@
 Using Tabular UFC fight data to predict winners from a given matchup
 
 ## Model Overview
-The training pipeline cleans raw fight statistics (for example converting "19 of 31" and "2:39" to numbers) and feeds fighter and referee names directly into [TensorFlow Decision Forests](https://www.tensorflow.org/decision_forests). Separate Random Forest models predict numeric fight statistics and categorical outcomes (result, method and round). Models are saved in TensorFlow's SavedModel format for use during prediction.
+The training pipeline cleans raw fight statistics (for example converting "19 of 31" and "2:39" to numbers) and encodes fighter and referee names for use with [scikit-learn](https://scikit-learn.org/). Separate Random Forest models predict numeric fight statistics and categorical outcomes (result, method and round). Models and the feature encoder are saved with `joblib` for later prediction.
 
 ## Setup
-Install dependencies (TensorFlow 2.15.0 and TensorFlow Decision Forests 1.8.1 are pinned for compatibility).
-The requirements include optional CUDA-enabled TensorFlow; if a compatible GPU and
-drivers are present, training and prediction will automatically leverage it:
+Install dependencies:
 
 ```
 pip install -r requirements.txt
@@ -17,20 +15,17 @@ pip install -r requirements.txt
 Train models and save them to the `models/` directory:
 
 ```
-python train.py
+python train.py --csv-path ufc_fight_stats.csv --model-dir models
 ```
 
-A progress bar tracks epoch progress at all debug levels. To log per-epoch metrics while keeping the bar intact, increase the debug level:
+### Configurable Parameters
+The training script exposes several arguments that can improve accuracy and precision:
 
-```
-python train.py --epochs 5 --debuglevel 1 --csv-path ufc_fight_stats.csv --model-dir models
-```
+* `--n-estimators` – number of trees in each forest (default: 100)
+* `--max-depth` – maximum depth of each tree (default: unlimited)
+* `--random-state` – seed for reproducible splits and model initialization (default: 42)
 
-Training logs, including per-epoch accuracy, are written for TensorBoard. To visualize them, run:
-
-```
-tensorboard --logdir runs
-```
+Tune these parameters to balance bias and variance for your dataset.
 
 ## Prediction
 Load the saved models and generate predictions for a matchup:
