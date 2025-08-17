@@ -49,8 +49,11 @@ def train_models(
         model.fit(X_train, train_df[col])
         train_pred = model.predict(X_train)
         test_pred = model.predict(X_test)
-        train_mses.append(mean_squared_error(train_df[col], train_pred))
-        test_mses.append(mean_squared_error(test_df[col], test_pred))
+        train_mse = mean_squared_error(train_df[col], train_pred)
+        test_mse = mean_squared_error(test_df[col], test_pred)
+        train_mses.append(train_mse)
+        test_mses.append(test_mse)
+        print(f"{col} Train MSE: {train_mse:.4f} Test MSE: {test_mse:.4f}")
         joblib.dump(model, os.path.join(model_dir, f"regressor_{col}.joblib"))
 
     # Train classifiers for categorical columns
@@ -64,8 +67,11 @@ def train_models(
         model.fit(X_train, train_df[col])
         train_pred = model.predict(X_train)
         test_pred = model.predict(X_test)
-        train_accs.append(accuracy_score(train_df[col], train_pred))
-        test_accs.append(accuracy_score(test_df[col], test_pred))
+        train_acc = accuracy_score(train_df[col], train_pred)
+        test_acc = accuracy_score(test_df[col], test_pred)
+        train_accs.append(train_acc)
+        test_accs.append(test_acc)
+        print(f"{col} Train Acc: {train_acc:.4f} Test Acc: {test_acc:.4f}")
         joblib.dump(model, os.path.join(model_dir, f"classifier_{col}.joblib"))
 
     avg_train_acc = sum(train_accs) / len(train_accs) if train_accs else 0.0
