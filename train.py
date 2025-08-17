@@ -6,6 +6,7 @@ from tqdm.auto import tqdm
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.metrics import mean_squared_error, accuracy_score
 from sklearn.preprocessing import OneHotEncoder
+from scipy import sparse
 
 from utils import NUMERIC_COLS, load_data
 
@@ -20,20 +21,36 @@ def train_models(
     """Train scikit-learn Random Forest models for fight statistics and outcomes."""
 
     df = load_data(csv_path)
-    features = ["fighter_1", "fighter_2", "referee"]
+    cat_features = ["fighter_1", "fighter_2", "referee"]
+    num_features = [
+        "fighter_1_winloss",
+        "fighter_1_avg_total_strikes",
+        "fighter_1_avg_control_time",
+        "fighter_1_avg_time",
+        "fighter_2_winloss",
+        "fighter_2_avg_total_strikes",
+        "fighter_2_avg_control_time",
+        "fighter_2_avg_time",
+    ]
     df_shuffled = df.sample(frac=1, random_state=random_state).reset_index(drop=True)
     split = int(len(df_shuffled) * 0.8)
     train_df = df_shuffled.iloc[:split]
     test_df = df_shuffled.iloc[split:]
 
     encoder = OneHotEncoder(handle_unknown="ignore")
-    encoder.fit(train_df[features])
+    encoder.fit(train_df[cat_features])
 
     os.makedirs(model_dir, exist_ok=True)
     joblib.dump(encoder, os.path.join(model_dir, "encoder.joblib"))
 
-    X_train = encoder.transform(train_df[features])
-    X_test = encoder.transform(test_df[features])
+    X_train_cat = encoder.transform(train_df[cat_features])
+    X_test_cat = encoder.transform(test_df[cat_features])
+    X_train = sparse.hstack(
+        [X_train_cat, sparse.csr_matrix(train_df[num_features].values)], format="csr"
+    )
+    X_test = sparse.hstack(
+        [X_test_cat, sparse.csr_matrix(test_df[num_features].values)], format="csr"
+    )
 
     train_mses, test_mses = [], []
     train_accs, test_accs = [], []
