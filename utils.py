@@ -60,4 +60,89 @@ def load_data(path: str) -> pd.DataFrame:
     numeric_cols = NUMERIC_COLS + ['round']
     df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
     df['round'] = df['round'].astype(int)
+
+    # ------------------------------------------------------------------
+    # Historical fighter statistics
+    # ------------------------------------------------------------------
+    # Build a per-fighter record of wins, losses and average metrics so
+    # that each row contains information about both competitors based on
+    # all fights present in the dataset.  The `result` column reflects the
+    # outcome for `fighter_1`; invert it for `fighter_2` when aggregating.
+
+    f1 = df[
+        [
+            "fighter_1",
+            "result",
+            "total_strikes_1",
+            "control_time_1",
+            "time",
+        ]
+    ].rename(
+        columns={
+            "fighter_1": "fighter",
+            "total_strikes_1": "total_strikes",
+            "control_time_1": "control_time",
+        }
+    )
+
+    f2 = df[
+        [
+            "fighter_2",
+            "result",
+            "total_strikes_2",
+            "control_time_2",
+            "time",
+        ]
+    ].rename(
+        columns={
+            "fighter_2": "fighter",
+            "total_strikes_2": "total_strikes",
+            "control_time_2": "control_time",
+        }
+    )
+    # Invert result for the second fighter (W -> L, L -> W, others unchanged)
+    f2["result"] = f2["result"].map({"W": "L", "L": "W"}).fillna(f2["result"])
+
+    fighter_stats = pd.concat([f1, f2], ignore_index=True)
+
+    wins = fighter_stats["result"].eq("W").groupby(fighter_stats["fighter"]).sum()
+    losses = fighter_stats["result"].eq("L").groupby(fighter_stats["fighter"]).sum()
+    winloss = wins - losses
+    avg_total_strikes = fighter_stats.groupby("fighter")["total_strikes"].mean()
+    avg_control_time = fighter_stats.groupby("fighter")["control_time"].mean()
+    avg_time = fighter_stats.groupby("fighter")["time"].mean()
+
+    fighter_agg = pd.DataFrame(
+        {
+            "winloss": winloss,
+            "avg_total_strikes": avg_total_strikes,
+            "avg_control_time": avg_control_time,
+            "avg_time": avg_time,
+        }
+    )
+
+    df = df.merge(
+        fighter_agg.add_prefix("fighter_1_"),
+        left_on="fighter_1",
+        right_index=True,
+        how="left",
+    )
+    df = df.merge(
+        fighter_agg.add_prefix("fighter_2_"),
+        left_on="fighter_2",
+        right_index=True,
+        how="left",
+    )
+
+    new_cols = [
+        "fighter_1_winloss",
+        "fighter_1_avg_total_strikes",
+        "fighter_1_avg_control_time",
+        "fighter_1_avg_time",
+        "fighter_2_winloss",
+        "fighter_2_avg_total_strikes",
+        "fighter_2_avg_control_time",
+        "fighter_2_avg_time",
+    ]
+    df[new_cols] = df[new_cols].apply(pd.to_numeric, errors="coerce").fillna(0)
     return df
