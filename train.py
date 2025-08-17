@@ -14,13 +14,13 @@ def train_models(
     csv_path: str,
     model_dir: str = "models",
     n_estimators: int = 100,
-    max_depth: Optional[int] = None,
+    max_depth: Optional[int] = 10,
     random_state: int = 42,
 ) -> None:
     """Train scikit-learn Random Forest models for fight statistics and outcomes."""
 
     df = load_data(csv_path)
-    features = ["fighter_1", "fighter_2", "referee"]
+    features = ["fighter_1", "fighter_2"] #["fighter_1", "fighter_2", "referee"]
     df_shuffled = df.sample(frac=1, random_state=random_state).reset_index(drop=True)
     split = int(len(df_shuffled) * 0.8)
     train_df = df_shuffled.iloc[:split]
