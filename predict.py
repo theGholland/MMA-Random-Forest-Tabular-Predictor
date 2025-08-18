@@ -6,7 +6,7 @@ import joblib
 import pandas as pd
 from scipy import sparse
 
-from utils import NUMERIC_COLS, load_data
+from utils import NUMERIC_COLS, HISTORIC_STATS, load_data
 
 
 def load_models(model_dir: str = "models"):
@@ -24,38 +24,24 @@ def load_models(model_dir: str = "models"):
 
 def build_lookup(df: pd.DataFrame) -> dict:
     """Create a case-insensitive mapping of fighter names to stats."""
-    f1 = df[
-        [
-            "fighter_1",
-            "fighter_1_winloss",
-            "fighter_1_avg_total_strikes",
-            "fighter_1_avg_control_time",
-            "fighter_1_avg_time",
-        ]
-    ].rename(
+    f1_cols = ["fighter_1", "fighter_1_winloss"] + [
+        f"fighter_1_avg_{stat}" for stat in HISTORIC_STATS
+    ]
+    f2_cols = ["fighter_2", "fighter_2_winloss"] + [
+        f"fighter_2_avg_{stat}" for stat in HISTORIC_STATS
+    ]
+    f1 = df[f1_cols].rename(
         columns={
             "fighter_1": "fighter",
             "fighter_1_winloss": "winloss",
-            "fighter_1_avg_total_strikes": "avg_total_strikes",
-            "fighter_1_avg_control_time": "avg_control_time",
-            "fighter_1_avg_time": "avg_time",
+            **{f"fighter_1_avg_{stat}": f"avg_{stat}" for stat in HISTORIC_STATS},
         }
     )
-    f2 = df[
-        [
-            "fighter_2",
-            "fighter_2_winloss",
-            "fighter_2_avg_total_strikes",
-            "fighter_2_avg_control_time",
-            "fighter_2_avg_time",
-        ]
-    ].rename(
+    f2 = df[f2_cols].rename(
         columns={
             "fighter_2": "fighter",
             "fighter_2_winloss": "winloss",
-            "fighter_2_avg_total_strikes": "avg_total_strikes",
-            "fighter_2_avg_control_time": "avg_control_time",
-            "fighter_2_avg_time": "avg_time",
+            **{f"fighter_2_avg_{stat}": f"avg_{stat}" for stat in HISTORIC_STATS},
         }
     )
     lookup_df = (
@@ -90,16 +76,11 @@ def predict(
     lookup,
 ):
     cat_features = ["fighter_1", "fighter_2", "referee"]
-    num_features = [
-        "fighter_1_winloss",
-        "fighter_1_avg_total_strikes",
-        "fighter_1_avg_control_time",
-        "fighter_1_avg_time",
-        "fighter_2_winloss",
-        "fighter_2_avg_total_strikes",
-        "fighter_2_avg_control_time",
-        "fighter_2_avg_time",
-    ]
+    num_features = ["fighter_1_winloss", "fighter_2_winloss"]
+    for stat in HISTORIC_STATS:
+        num_features.extend(
+            [f"fighter_1_avg_{stat}", f"fighter_2_avg_{stat}"]
+        )
 
     f1_name, f1_stats = get_fighter_stats(fighter1, lookup)
     f2_name, f2_stats = get_fighter_stats(fighter2, lookup)
@@ -108,14 +89,11 @@ def predict(
         "fighter_2": f2_name,
         "referee": referee,
         "fighter_1_winloss": f1_stats.get("winloss", 0),
-        "fighter_1_avg_total_strikes": f1_stats.get("avg_total_strikes", 0),
-        "fighter_1_avg_control_time": f1_stats.get("avg_control_time", 0),
-        "fighter_1_avg_time": f1_stats.get("avg_time", 0),
         "fighter_2_winloss": f2_stats.get("winloss", 0),
-        "fighter_2_avg_total_strikes": f2_stats.get("avg_total_strikes", 0),
-        "fighter_2_avg_control_time": f2_stats.get("avg_control_time", 0),
-        "fighter_2_avg_time": f2_stats.get("avg_time", 0),
     }
+    for stat in HISTORIC_STATS:
+        row[f"fighter_1_avg_{stat}"] = f1_stats.get(f"avg_{stat}", 0)
+        row[f"fighter_2_avg_{stat}"] = f2_stats.get(f"avg_{stat}", 0)
 
     X_new = pd.DataFrame([row])
     X_cat = encoder.transform(X_new[cat_features])
