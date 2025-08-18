@@ -35,6 +35,10 @@ NUMERIC_COLS = [
     'time'
 ]
 
+# Base stat names used for historical aggregates
+BASE_STATS = [c[:-2] for c in NUMERIC_COLS if c.endswith('_1')]
+HISTORIC_STATS = BASE_STATS + ['time']
+
 def parse_count(value):
     """Return the landed count from strings like '19 of 31'."""
     try:
@@ -69,36 +73,13 @@ def load_data(path: str) -> pd.DataFrame:
     # all fights present in the dataset.  The `result` column reflects the
     # outcome for `fighter_1`; invert it for `fighter_2` when aggregating.
 
-    f1 = df[
-        [
-            "fighter_1",
-            "result",
-            "total_strikes_1",
-            "control_time_1",
-            "time",
-        ]
-    ].rename(
-        columns={
-            "fighter_1": "fighter",
-            "total_strikes_1": "total_strikes",
-            "control_time_1": "control_time",
-        }
+    stat_cols_1 = [f"{s}_1" for s in BASE_STATS]
+    stat_cols_2 = [f"{s}_2" for s in BASE_STATS]
+    f1 = df[["fighter_1", "result"] + stat_cols_1 + ["time"]].rename(
+        columns={**{"fighter_1": "fighter"}, **{f"{s}_1": s for s in BASE_STATS}}
     )
-
-    f2 = df[
-        [
-            "fighter_2",
-            "result",
-            "total_strikes_2",
-            "control_time_2",
-            "time",
-        ]
-    ].rename(
-        columns={
-            "fighter_2": "fighter",
-            "total_strikes_2": "total_strikes",
-            "control_time_2": "control_time",
-        }
+    f2 = df[["fighter_2", "result"] + stat_cols_2 + ["time"]].rename(
+        columns={**{"fighter_2": "fighter"}, **{f"{s}_2": s for s in BASE_STATS}}
     )
     # Invert result for the second fighter (W -> L, L -> W, others unchanged)
     f2["result"] = f2["result"].map({"W": "L", "L": "W"}).fillna(f2["result"])
@@ -108,18 +89,10 @@ def load_data(path: str) -> pd.DataFrame:
     wins = fighter_stats["result"].eq("W").groupby(fighter_stats["fighter"]).sum()
     losses = fighter_stats["result"].eq("L").groupby(fighter_stats["fighter"]).sum()
     winloss = wins - losses
-    avg_total_strikes = fighter_stats.groupby("fighter")["total_strikes"].mean()
-    avg_control_time = fighter_stats.groupby("fighter")["control_time"].mean()
-    avg_time = fighter_stats.groupby("fighter")["time"].mean()
+    avg_stats = fighter_stats.groupby("fighter")[HISTORIC_STATS].mean()
 
-    fighter_agg = pd.DataFrame(
-        {
-            "winloss": winloss,
-            "avg_total_strikes": avg_total_strikes,
-            "avg_control_time": avg_control_time,
-            "avg_time": avg_time,
-        }
-    )
+    fighter_agg = avg_stats.add_prefix("avg_")
+    fighter_agg["winloss"] = winloss
 
     df = df.merge(
         fighter_agg.add_prefix("fighter_1_"),
@@ -134,15 +107,10 @@ def load_data(path: str) -> pd.DataFrame:
         how="left",
     )
 
-    new_cols = [
-        "fighter_1_winloss",
-        "fighter_1_avg_total_strikes",
-        "fighter_1_avg_control_time",
-        "fighter_1_avg_time",
-        "fighter_2_winloss",
-        "fighter_2_avg_total_strikes",
-        "fighter_2_avg_control_time",
-        "fighter_2_avg_time",
-    ]
+    new_cols = []
+    for prefix in ["fighter_1", "fighter_2"]:
+        new_cols.append(f"{prefix}_winloss")
+        for stat in HISTORIC_STATS:
+            new_cols.append(f"{prefix}_avg_{stat}")
     df[new_cols] = df[new_cols].apply(pd.to_numeric, errors="coerce").fillna(0)
     return df

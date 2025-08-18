@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_error, accuracy_score
 from sklearn.preprocessing import OneHotEncoder
 from scipy import sparse
 
-from utils import NUMERIC_COLS, load_data
+from utils import NUMERIC_COLS, HISTORIC_STATS, load_data
 
 
 def train_models(
@@ -22,16 +22,11 @@ def train_models(
 
     df = load_data(csv_path)
     cat_features = ["fighter_1", "fighter_2", "referee"]
-    num_features = [
-        "fighter_1_winloss",
-        "fighter_1_avg_total_strikes",
-        "fighter_1_avg_control_time",
-        "fighter_1_avg_time",
-        "fighter_2_winloss",
-        "fighter_2_avg_total_strikes",
-        "fighter_2_avg_control_time",
-        "fighter_2_avg_time",
-    ]
+    num_features = ["fighter_1_winloss", "fighter_2_winloss"]
+    for stat in HISTORIC_STATS:
+        num_features.extend(
+            [f"fighter_1_avg_{stat}", f"fighter_2_avg_{stat}"]
+        )
     df_shuffled = df.sample(frac=1, random_state=random_state).reset_index(drop=True)
     split = int(len(df_shuffled) * 0.8)
     train_df = df_shuffled.iloc[:split]

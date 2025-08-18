@@ -2,7 +2,7 @@
 Using Tabular UFC fight data to predict winners from a given matchup
 
 ## Model Overview
-The training pipeline cleans raw fight statistics (for example converting "19 of 31" and "2:39" to numbers) and encodes fighter and referee names for use with [scikit-learn](https://scikit-learn.org/). Separate Random Forest models predict numeric fight statistics and categorical outcomes (result, method and round). Models and the feature encoder are saved with `joblib` for later prediction.
+The training pipeline cleans raw fight statistics (for example converting "19 of 31" and "2:39" to numbers) and encodes fighter and referee names for use with [scikit-learn](https://scikit-learn.org/). Separate Random Forest models predict numeric fight statistics and categorical outcomes (result, method and round). Models and the feature encoder are saved with `joblib` for later prediction. Fighter features now include historical averages for all tracked fight metrics, giving the models richer context for both training and prediction.
 
 ## Setup
 Install dependencies:
