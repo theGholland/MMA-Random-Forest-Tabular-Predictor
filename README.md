@@ -12,10 +12,12 @@ pip install -r requirements.txt
 ```
 
 ## Training
-Train models and save them to the `models/` directory:
+Train models and save them to the `models/` directory. Historical per-fighter
+averages are cached to a separate CSV (`fighter_stats.csv` by default) and
+reused for both training and prediction:
 
 ```
-python train.py --csv-path ufc_fight_stats.csv --model-dir models
+python train.py --csv-path ufc_fight_stats.csv --model-dir models --fighter-stats-csv fighter_stats.csv
 ```
 
 ### Configurable Parameters
@@ -28,10 +30,11 @@ The training script exposes several arguments that can improve accuracy and prec
 Tune these parameters to balance bias and variance for your dataset.
 
 ## Prediction
-Load the saved models and generate predictions for a matchup:
+Load the saved models and generate predictions for a matchup (the same cached
+fighter statistics file is required):
 
 ```
-python predict.py --fighter1 "Alexa Grasso" --fighter2 "Valentina Shevchenko" --referee "Herb Dean"
+python predict.py --fighter1 "Alexa Grasso" --fighter2 "Valentina Shevchenko" --referee "Herb Dean" --fighter-stats-csv fighter_stats.csv
 ```
 
 The script prints predicted fight statistics along with the result, method and round.

@@ -114,10 +114,15 @@ def main():
     parser.add_argument("--referee", required=True)
     parser.add_argument("--model-dir", default="models")
     parser.add_argument("--csv-path", default="ufc_fight_stats.csv")
+    parser.add_argument(
+        "--fighter-stats-csv",
+        default="fighter_stats.csv",
+        help="Path to cached fighter averages",
+    )
     args = parser.parse_args()
 
     encoder, regressors, classifiers = load_models(args.model_dir)
-    df = load_data(args.csv_path)
+    df = load_data(args.csv_path, args.fighter_stats_csv)
     lookup = build_lookup(df)
 
     prediction = predict(

@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 
@@ -39,6 +40,29 @@ NUMERIC_COLS = [
 BASE_STATS = [c[:-2] for c in NUMERIC_COLS if c.endswith('_1')]
 HISTORIC_STATS = BASE_STATS + ['time']
 
+def _build_fighter_averages(df: pd.DataFrame) -> pd.DataFrame:
+    """Return historical averages and win/loss differential per fighter."""
+    stat_cols_1 = [f"{s}_1" for s in BASE_STATS]
+    stat_cols_2 = [f"{s}_2" for s in BASE_STATS]
+    f1 = df[["fighter_1", "result"] + stat_cols_1 + ["time"]].rename(
+        columns={**{"fighter_1": "fighter"}, **{f"{s}_1": s for s in BASE_STATS}}
+    )
+    f2 = df[["fighter_2", "result"] + stat_cols_2 + ["time"]].rename(
+        columns={**{"fighter_2": "fighter"}, **{f"{s}_2": s for s in BASE_STATS}}
+    )
+    # Invert result for the second fighter (W -> L, L -> W, others unchanged)
+    f2["result"] = f2["result"].map({"W": "L", "L": "W"}).fillna(f2["result"])
+    fighter_stats = pd.concat([f1, f2], ignore_index=True)
+
+    wins = fighter_stats["result"].eq("W").groupby(fighter_stats["fighter"]).sum()
+    losses = fighter_stats["result"].eq("L").groupby(fighter_stats["fighter"]).sum()
+    winloss = wins - losses
+    avg_stats = fighter_stats.groupby("fighter")[HISTORIC_STATS].mean()
+
+    fighter_agg = avg_stats.add_prefix("avg_")
+    fighter_agg["winloss"] = winloss
+    return fighter_agg
+
 def parse_count(value):
     """Return the landed count from strings like '19 of 31'."""
     try:
@@ -54,7 +78,7 @@ def parse_time(ts):
     except Exception:
         return np.nan
 
-def load_data(path: str) -> pd.DataFrame:
+def load_data(path: str, fighter_stats_path: str = "fighter_stats.csv") -> pd.DataFrame:
     """Load and clean the UFC stats dataset."""
     df = pd.read_csv(path)
     for col in COUNT_COLS:
@@ -68,31 +92,11 @@ def load_data(path: str) -> pd.DataFrame:
     # ------------------------------------------------------------------
     # Historical fighter statistics
     # ------------------------------------------------------------------
-    # Build a per-fighter record of wins, losses and average metrics so
-    # that each row contains information about both competitors based on
-    # all fights present in the dataset.  The `result` column reflects the
-    # outcome for `fighter_1`; invert it for `fighter_2` when aggregating.
-
-    stat_cols_1 = [f"{s}_1" for s in BASE_STATS]
-    stat_cols_2 = [f"{s}_2" for s in BASE_STATS]
-    f1 = df[["fighter_1", "result"] + stat_cols_1 + ["time"]].rename(
-        columns={**{"fighter_1": "fighter"}, **{f"{s}_1": s for s in BASE_STATS}}
-    )
-    f2 = df[["fighter_2", "result"] + stat_cols_2 + ["time"]].rename(
-        columns={**{"fighter_2": "fighter"}, **{f"{s}_2": s for s in BASE_STATS}}
-    )
-    # Invert result for the second fighter (W -> L, L -> W, others unchanged)
-    f2["result"] = f2["result"].map({"W": "L", "L": "W"}).fillna(f2["result"])
-
-    fighter_stats = pd.concat([f1, f2], ignore_index=True)
-
-    wins = fighter_stats["result"].eq("W").groupby(fighter_stats["fighter"]).sum()
-    losses = fighter_stats["result"].eq("L").groupby(fighter_stats["fighter"]).sum()
-    winloss = wins - losses
-    avg_stats = fighter_stats.groupby("fighter")[HISTORIC_STATS].mean()
-
-    fighter_agg = avg_stats.add_prefix("avg_")
-    fighter_agg["winloss"] = winloss
+    if os.path.exists(fighter_stats_path):
+        fighter_agg = pd.read_csv(fighter_stats_path, index_col=0)
+    else:
+        fighter_agg = _build_fighter_averages(df)
+        fighter_agg.to_csv(fighter_stats_path)
 
     df = df.merge(
         fighter_agg.add_prefix("fighter_1_"),

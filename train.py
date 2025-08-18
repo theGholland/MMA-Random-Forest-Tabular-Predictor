@@ -17,10 +17,11 @@ def train_models(
     n_estimators: int = 100,
     max_depth: Optional[int] = 10,
     random_state: int = 42,
+    fighter_stats_csv: str = "fighter_stats.csv",
 ) -> None:
     """Train scikit-learn Random Forest models for fight statistics and outcomes."""
 
-    df = load_data(csv_path)
+    df = load_data(csv_path, fighter_stats_csv)
     cat_features = ["fighter_1", "fighter_2", "referee"]
     num_features = ["fighter_1_winloss", "fighter_2_winloss"]
     for stat in HISTORIC_STATS:
@@ -104,6 +105,11 @@ if __name__ == "__main__":
     parser.add_argument("--csv-path", default="ufc_fight_stats.csv")
     parser.add_argument("--model-dir", default="models")
     parser.add_argument(
+        "--fighter-stats-csv",
+        default="fighter_stats.csv",
+        help="Path to cached fighter averages",
+    )
+    parser.add_argument(
         "--n-estimators", type=int, default=100, help="Number of trees in each forest"
     )
     parser.add_argument(
@@ -120,5 +126,6 @@ if __name__ == "__main__":
         n_estimators=args.n_estimators,
         max_depth=args.max_depth,
         random_state=args.random_state,
+        fighter_stats_csv=args.fighter_stats_csv,
     )
 
