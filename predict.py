@@ -5,21 +5,37 @@ import difflib
 import joblib
 import pandas as pd
 from scipy import sparse
+import numpy as np
 
 from utils import NUMERIC_COLS, HISTORIC_STATS, load_data
 
 
-def load_models(model_dir: str = "models"):
+def load_models(model_dir: str = "models", num_passes: int = 1):
     encoder = joblib.load(os.path.join(model_dir, "encoder.joblib"))
-    regressors = {
-        col: joblib.load(os.path.join(model_dir, f"regressor_{col}.joblib"))
-        for col in NUMERIC_COLS
-    }
-    classifiers = {
-        col: joblib.load(os.path.join(model_dir, f"classifier_{col}.joblib"))
+    regressors = []
+    classifiers = []
+    for p in range(num_passes):
+        regressors.append(
+            {
+                col: joblib.load(
+                    os.path.join(model_dir, f"regressor_{col}_pass{p+1}.joblib")
+                )
+                for col in NUMERIC_COLS
+            }
+        )
+        classifiers.append(
+            {
+                col: joblib.load(
+                    os.path.join(model_dir, f"classifier_{col}_pass{p+1}.joblib")
+                )
+                for col in ["result", "method", "round"]
+            }
+        )
+    label_encoders = {
+        col: joblib.load(os.path.join(model_dir, f"label_encoder_{col}.joblib"))
         for col in ["result", "method", "round"]
     }
-    return encoder, regressors, classifiers
+    return encoder, regressors, classifiers, label_encoders
 
 
 def build_lookup(df: pd.DataFrame) -> dict:
@@ -74,6 +90,8 @@ def predict(
     regressors,
     classifiers,
     lookup,
+    label_encoders,
+    num_passes: int = 1,
 ):
     cat_features = ["fighter_1", "fighter_2", "referee"]
     num_features = ["fighter_1_winloss", "fighter_2_winloss"]
@@ -100,8 +118,28 @@ def predict(
     X = sparse.hstack(
         [X_cat, sparse.csr_matrix(X_new[num_features].values)], format="csr"
     )
-    num_pred = {col: float(model.predict(X)[0]) for col, model in regressors.items()}
-    cat_pred = {col: model.predict(X)[0] for col, model in classifiers.items()}
+    X_curr = X
+    for p in range(num_passes):
+        num_models = regressors[p]
+        cat_models = classifiers[p]
+        num_pred = {
+            col: float(num_models[col].predict(X_curr)[0]) for col in NUMERIC_COLS
+        }
+        cat_pred = {
+            col: cat_models[col].predict(X_curr)[0]
+            for col in ["result", "method", "round"]
+        }
+        if p < num_passes - 1:
+            feat_vals = []
+            for col in NUMERIC_COLS:
+                feat_vals.append(num_pred[col])
+            for col in ["result", "method", "round"]:
+                le = label_encoders[col]
+                feat_vals.append(le.transform([cat_pred[col]])[0])
+            X_curr = sparse.hstack(
+                [X_curr, sparse.csr_matrix(np.array(feat_vals).reshape(1, -1))],
+                format="csr",
+            )
     result = dict(num_pred)
     result.update(cat_pred)
     return result
@@ -119,9 +157,14 @@ def main():
         default="fighter_stats.csv",
         help="Path to cached fighter averages",
     )
+    parser.add_argument(
+        "--num-passes", type=int, default=1, help="Number of iterative passes"
+    )
     args = parser.parse_args()
 
-    encoder, regressors, classifiers = load_models(args.model_dir)
+    encoder, regressors, classifiers, label_encoders = load_models(
+        args.model_dir, args.num_passes
+    )
     df = load_data(args.csv_path, args.fighter_stats_csv)
     lookup = build_lookup(df)
 
@@ -133,6 +176,8 @@ def main():
         regressors,
         classifiers,
         lookup,
+        label_encoders,
+        num_passes=args.num_passes,
     )
     print(prediction)
 

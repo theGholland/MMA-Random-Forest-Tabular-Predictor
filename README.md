@@ -26,6 +26,7 @@ The training script exposes several arguments that can improve accuracy and prec
 * `--n-estimators` – number of trees in each forest (default: 100)
 * `--max-depth` – maximum depth of each tree (default: unlimited)
 * `--random-state` – seed for reproducible splits and model initialization (default: 42)
+* `--num-passes` – number of iterative passes where model predictions are fed back as features (default: 1)
 
 Tune these parameters to balance bias and variance for your dataset.
 
@@ -37,4 +38,4 @@ fighter statistics file is required):
 python predict.py --fighter1 "Alexa Grasso" --fighter2 "Valentina Shevchenko" --referee "Herb Dean" --fighter-stats-csv fighter_stats.csv
 ```
 
-The script prints predicted fight statistics along with the result, method and round.
+The script prints predicted fight statistics along with the result, method and round. Use `--num-passes` with `predict.py` if the models were trained with more than one pass.
