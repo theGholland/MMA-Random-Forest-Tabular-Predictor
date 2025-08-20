@@ -58,11 +58,13 @@ def train_models(
 
     X_train_curr = X_train
     X_test_curr = X_test
+    metrics_history = []
     for p in range(num_passes):
         train_mses, test_mses = [], []
         train_accs, test_accs = [], []
         train_feats, test_feats = [], []
 
+        regressor_mses = []
         for col in tqdm(NUMERIC_COLS, desc=f"Regressors Pass {p+1}"):
             model = RandomForestRegressor(
                 n_estimators=n_estimators,
@@ -80,10 +82,13 @@ def train_models(
             joblib.dump(
                 model, os.path.join(model_dir, f"regressor_{col}_pass{p+1}.joblib")
             )
-            if p == num_passes - 1:
-                print(f"{col} Train MSE: {train_mse:.4f} Test MSE: {test_mse:.4f}")
+            regressor_mses.append((col, train_mse, test_mse))
             train_feats.append(train_pred.reshape(-1, 1))
             test_feats.append(test_pred.reshape(-1, 1))
+
+        if p == num_passes - 1:
+            for col, train_mse, test_mse in regressor_mses:
+                print(f"{col} Train MSE: {train_mse:.4f} Test MSE: {test_mse:.4f}")
 
         for col in tqdm(["result", "method", "round"], desc=f"Classifiers Pass {p+1}"):
             model = RandomForestClassifier(
@@ -112,9 +117,23 @@ def train_models(
         avg_test_acc = sum(test_accs) / len(test_accs) if test_accs else 0.0
         avg_train_mse = sum(train_mses) / len(train_mses) if train_mses else 0.0
         avg_test_mse = sum(test_mses) / len(test_mses) if test_mses else 0.0
+        prev_metrics = metrics_history[-1] if metrics_history else None
         print(
             f"Pass {p+1}/{num_passes} Train Acc: {avg_train_acc:.4f} Test Acc: {avg_test_acc:.4f} "
             f"Train MSE: {avg_train_mse:.4f} Test MSE: {avg_test_mse:.4f}"
+        )
+        if prev_metrics:
+            print(
+                f"Prev Pass Train Acc: {prev_metrics['train_acc']:.4f} Test Acc: {prev_metrics['test_acc']:.4f} "
+                f"Train MSE: {prev_metrics['train_mse']:.4f} Test MSE: {prev_metrics['test_mse']:.4f}"
+            )
+        metrics_history.append(
+            {
+                "train_acc": avg_train_acc,
+                "test_acc": avg_test_acc,
+                "train_mse": avg_train_mse,
+                "test_mse": avg_test_mse,
+            }
         )
 
         if p < num_passes - 1:
